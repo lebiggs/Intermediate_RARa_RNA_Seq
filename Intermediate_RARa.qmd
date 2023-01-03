@@ -1,7 +1,7 @@
 ---
 title: "Intermediate_RARa"
 author: "Laura Biggs"
-format: pdf
+format: html
 ---
 # Brief experiment info
 Bulk RNA seq on SI IEL intermediate (day 5-10 p.i.) RARa inhibitor treated mice. 3 populations profiled: CD103+ CD69+, CD103- CD69-, CD103- CD69+.
@@ -13,12 +13,13 @@ library(readr)
 
 file = "Genes_count_table.tsv"
 counts_tibble <- read_tsv(file)
-dim(counts_tibble)
+
 
 # Coerce tibble into dataframe
 counts <- as.data.frame(counts_tibble)
 rownames(counts) = counts$GeneSymbol
-counts <- counts[,-1]
+counts <- as.matrix(counts[,-1])
+dim(counts)
 
 # Create new dataframe for metadata
 metadata = data.frame(
@@ -34,7 +35,7 @@ metadata
 
 # DESeq2
 ```{r}
-library(DESeq2)
+ library(DESeq2)
 
 dds <- DESeqDataSetFromMatrix(countData = counts,
                               colData = metadata,
@@ -65,12 +66,11 @@ plotPCA(vsd, intgroup = c("subset", "condition"))
 
 # Results
 ```{r}
-res <- results(dds, contrast = c("condition", "control", "RARa"))
-res
-
+#res <- results(dds, contrast = c("condition", "control", "RARa"))
+#res
 
 # Identify significant genes; doesn't look right!
-res05 <- results(dds, alpha = 0.05)
-summary(res05)
+#res05 <- results(dds, alpha = 0.05)
+#summary(res05)
 ```
 
