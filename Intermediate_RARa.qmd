@@ -1,0 +1,76 @@
+---
+title: "Intermediate_RARa"
+author: "Laura Biggs"
+format: pdf
+---
+# Brief experiment info
+Bulk RNA seq on SI IEL intermediate (day 5-10 p.i.) RARa inhibitor treated mice. 3 populations profiled: CD103+ CD69+, CD103- CD69-, CD103- CD69+.
+
+
+# Read in metadata and counts
+```{r}
+library(readr)
+
+file = "Genes_count_table.tsv"
+counts_tibble <- read_tsv(file)
+dim(counts_tibble)
+
+# Coerce tibble into dataframe
+counts <- as.data.frame(counts_tibble)
+rownames(counts) = counts$GeneSymbol
+counts <- counts[,-1]
+
+# Create new dataframe for metadata
+metadata = data.frame(
+ row.names = colnames(counts),
+ subset = c("CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP", "CD103_CD69_DP",
+            "CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP", "CD103_CD69_DP"),
+ condition = c("control","control","control","control","control","control",
+               "RARa", "RARa", "RARa", "RARa", "RARa", "RARa")
+)
+metadata
+```
+
+
+# DESeq2
+```{r}
+library(DESeq2)
+
+dds <- DESeqDataSetFromMatrix(countData = counts,
+                              colData = metadata,
+                              design = ~ subset + condition)
+
+```
+
+
+# PCA
+```{r}
+dds = estimateSizeFactors(dds)
+
+ntd = normTransform(dds)
+
+plotPCA(ntd, intgroup = c("subset", "condition"))
+
+# Transforms count data by log2 scale; blind = FALSE
+rld = rlog(dds, blind = FALSE)
+
+plotPCA(rld, intgroup = c("subset", "condition"))
+
+# Estimate dispersion and variance stabilizing transform
+vsd = vst(dds, blind = FALSE)
+
+plotPCA(vsd, intgroup = c("subset", "condition"))
+```
+
+
+# Results
+```{r}
+res <- results(dds, contrast = c("condition", "control", "RARa"))
+res
+
+
+# Identify significant genes; doesn't look right!
+res05 <- results(dds, alpha = 0.05)
+summary(res05)
+```
+
