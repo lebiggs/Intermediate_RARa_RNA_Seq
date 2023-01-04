@@ -20,14 +20,31 @@ counts <- as.data.frame(counts_tibble)
 rownames(counts) = counts$GeneSymbol
 counts <- as.matrix(counts[,-1])
 dim(counts)
+```
 
+# Identify outliers and eliminate columns with few reads
+```{r}
+barplot(colSums(counts))
+
+# Column 11 s/b eliminated!
+keep <- colSums(counts) > 50000
+counts <- counts[, keep]
+
+barplot(colSums(counts))
+
+dim(counts)
+```
+
+
+# Metadata
+```{r}
 # Create new dataframe for metadata
 metadata = data.frame(
  row.names = colnames(counts),
- subset = c("CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP", "CD103_CD69_DP",
-            "CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP", "CD103_CD69_DP"),
- condition = c("control","control","control","control","control","control",
-               "RARa", "RARa", "RARa", "RARa", "RARa", "RARa")
+ population = factor(c("CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP", "CD103_CD69_DP",
+            "CD103_CD69_DN", "CD103_CD69_DN", "CD69_SP", "CD69_SP", "CD103_CD69_DP")),
+ condition = factor(c("control","control","control","control","control","control",
+               "RARa", "RARa", "RARa", "RARa", "RARa"))
 )
 metadata
 ```
@@ -39,38 +56,116 @@ metadata
 
 dds <- DESeqDataSetFromMatrix(countData = counts,
                               colData = metadata,
-                              design = ~ subset + condition)
+                              design = ~ population + condition)
 
 ```
 
+# Identify outliers and eliminate columns with few reads
+```{r}
+#barplot(colSums(counts))
 
-# PCA
+# Column 11 s/b eliminated!
+#keep <- colSums(counts(dds)) > 50000
+#dds <- dds[, keep]
+
+#barplot(colSums(counts(dds)))
+```
+
+
+# PCA (cannot use prcomp)
 ```{r}
 dds = estimateSizeFactors(dds)
 
 ntd = normTransform(dds)
 
-plotPCA(ntd, intgroup = c("subset", "condition"))
+plotPCA(ntd, intgroup = c("population", "condition"))
 
 # Transforms count data by log2 scale; blind = FALSE
 rld = rlog(dds, blind = FALSE)
 
-plotPCA(rld, intgroup = c("subset", "condition"))
+plotPCA(rld, intgroup = c("population", "condition"))
 
 # Estimate dispersion and variance stabilizing transform
 vsd = vst(dds, blind = FALSE)
 
-plotPCA(vsd, intgroup = c("subset", "condition"))
+plotPCA(vsd, intgroup = c("population", "condition"))
 ```
 
+Comparisons
+1. DMSO vs RARa (all subsets pooled)
+2. DMSO vs RARa for CD103-CD69-
+3. DMSO vs RARa for CD103-CD69+
+4. DMSO vs RARa for CD103+CD69+
 
 # Results
 ```{r}
-#res <- results(dds, contrast = c("condition", "control", "RARa"))
-#res
+dds$population
+dds$condition
 
-# Identify significant genes; doesn't look right!
-#res05 <- results(dds, alpha = 0.05)
-#summary(res05)
+
+dds$group <- factor(paste0(dds$condition, dds$population))
+design(dds) <- ~ group
+dds <- DESeq(dds)
+resultsNames(dds)
+
+# Comparison #1: - DMSO vs RARa (all subsets pooled)
+all_pooled <- results(dds, contrast = c("group_CD103_CD69_DNRARa_vs_CD103_CD69_DNcontrol",
+                                    "group_CD103_CD69_DPRARa_vs_CD103_CD69_DPcontrol",
+                                    "group_CD69_SPRARa_vs_CD69_SPcontrol"))
+
+# Comparison #2 - DMSO vs RARa for CD103-CD69-
+CD103_CD69_DN <- results(dds, contrast = c("group", "CD103_CD69_DNRARa", "CD103_CD69_DNcontrol"))
+CD103_CD69_DN
+
+# Comparison #3 - DMSO vs RARa for CD103-CD69+
+CD69_SP <- results(dds, contrast = c("group", "CD69_SPRARa", "CD69_SPcontrol"))
+CD69_SP
+
+# Comparison #4 - DMSO vs RARa for CD103+CD69+
+CD103_CD69_DP <- results(dds, contrast = c("group", "CD103_CD69_DPRARa", "CD103_CD69_DPcontrol"))
+CD103_CD69_DP
+```
+
+
+```{r}
+# Condition based results
+#res_condition <- results(dds, contrast = list(c("condition"), c("population", "CD103_CD69_DN")))
+#res_condition
+#summary(res_condition)
+#plotMA(res)
+
+# Visualize population based results
+#DP and DN
+#res_population_DN_DP <- results(dds, contrast = c("population", "CD103_CD69_DN", "CD103_CD69_DP"))
+#summary(res_population_DN_DP, alpha = 0.05)
+#plotMA(res_population_DN_DP)
+
+#DN and SP
+#res_population_DN_SP <- results(dds, contrast = c("population", "CD103_CD69_DN", "CD69_SP"))
+#summary(res_population_DN_SP, alpha = 0.05)
+#plotMA(res_population_DN_SP)
+
+#SP and DP
+#res_population_SP_DP <- results(dds, contrast = c("population", "CD69_SP", "CD103_CD69_DP"))
+#summary(res_population_SP_DP, alpha = 0.05)
+#plotMA(res_population_SP_DP)
+
+```
+
+#lfcShrink
+```{r}
+
+```
+
+
+# Subset DEGs w/padj
+```{r}
+library(dplyr)
+
+#res_population_DN_DP %>% as.data.frame() %>%
+  filter(padj < 0.05) %>%
+  arrange(desc(abs(log2FoldChange))) %>%
+  head(30)
+#res_population_DN_DP$log2FoldChange
 ```
 
